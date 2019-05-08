@@ -1,0 +1,24 @@
+<?php
+
+/**
+ * @file
+ * Contains simulasi.module.
+ */
+
+use Drupal\Core\Routing\RouteMatchInterface;
+
+/**
+ * Implements hook_help().
+ */
+function simulasi_help($route_name, RouteMatchInterface $route_match) {
+  switch ($route_name) {
+    // Main module help for the simulasi module.
+    case 'help.page.simulasi':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Simulasi Pendaftaran PPDB') . '</p>';
+      return $output;
+
+    default:
+  }
+}

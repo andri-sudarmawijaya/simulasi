@@ -1,0 +1,14 @@
+{
+  "name": "drupal/simulasi",
+  "type": "drupal-module",
+  "description": "Simulasi Pendaftaran PPDB",
+  "keywords": ["Drupal"],
+  "license": "GPL-2.0+",
+  "homepage": "https://www.drupal.org/project/simulasi",
+  "minimum-stability": "dev",
+  "support": {
+    "issues": "https://www.drupal.org/project/issues/simulasi",
+    "source": "http://cgit.drupalcode.org/simulasi"
+  },
+  "require": { }
+}
