@@ -1,0 +1,7 @@
+simulasi.simulasi_pendaftaran.form:
+  path: '/simulasi/simulasi-pendaftaran'
+  defaults:
+    _form: '\Drupal\simulasi\Form\SimulasiPendaftaranForm'
+    _title: 'simulasi pendaftaran batch processing'
+  requirements:
+    _permission: 'access content'
