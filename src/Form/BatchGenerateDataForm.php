@@ -142,8 +142,6 @@ class BatchGenerateDataForm extends FormBase {
   }
   
     public function batchGenerate($smaller_batch_data, $var, &$context) {
-	  //$data = (array)$smaller_batch_data;
-	  dpm($context);
 	  foreach($smaller_batch_data as $data){
 		$data = (array)$data;
 		
@@ -181,7 +179,7 @@ class BatchGenerateDataForm extends FormBase {
 		}
 		$database = \Drupal::Database();
         $transaction = $database->startTransaction();
-		//dpm($data);
+		
         try {
 		  $pendaftaran = Pendaftaran::create($data);
 		  $pendaftaran->save();
@@ -192,17 +190,14 @@ class BatchGenerateDataForm extends FormBase {
           watchdog_exception('simulasi', $e, $e->getMessage());
           throw new \Exception(  $e->getMessage(), $e->getCode(), $e->getPrevious());
         }
-		$sandbox['current'] = '1';
-	    //$this->messenger()->addMessage($this->t('@count pendaftaran processed.', array('@count' => isset($sandbox['current']) ? $sandbox['current']++ : '1')));
-	    drupal_set_message(t('@count pendaftaran processed.', array('@count' => $sandbox['current'] ? $sandbox['current']++ : '1')));
 
-		dpm($sandbox['current']);
-		
-	    if ($sandbox['total'] == 0) {
-		  $sandbox['#finished'] = 1;
-	    } else {
-		  $sandbox['#finished'] = (( isset($sandbox['current']) ? $sandbox['current']++ : '1') / $sandbox['total']);
-	    }
+        // Display data while running batch.
+        $batch_size=sizeof($smaller_batch_data);
+        $batch_number=sizeof($context['results'])+1;
+        $context['message'] = sprintf("Deleting %s entities per batch. Batch #%s"
+                                            , $batch_size, $batch_number);
+        $context['results'][] = sizeof($smaller_batch_data);
+
 	  }
 	}
  
@@ -271,7 +266,6 @@ class BatchGenerateDataForm extends FormBase {
   public function getPilihanSekolah($data){
     $ids = \Drupal::entityQuery('pilihan_sekolah')
 		->condition('jenis_sekolah', $data['jenis_sekolah'] ,'=')
-		->condition('vilage', $data['vilage'] ,'=')
 		->execute();
 
 	$pilihan_sekolah = PilihanSekolah::load(array_rand($ids));	
@@ -291,6 +285,7 @@ class BatchGenerateDataForm extends FormBase {
 	
 	return $data;
   }
+
   public function getZonasi($data){
     if($data['provinsi'] == $data['provinsi_sekolah']){
 	  $machine = 'satu_provinsi';
@@ -444,7 +439,7 @@ class BatchGenerateDataForm extends FormBase {
   public function createUser($data) { 
     $language = \Drupal::languageManager()->getCurrentLanguage()->getId();
     $user = \Drupal\user\Entity\User::create();
-    //dpm($data);
+
     //Mandatory settings
     $user->setPassword($data['nisn']);
     $user->enforceIsNew();
