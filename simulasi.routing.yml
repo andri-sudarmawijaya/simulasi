@@ -1,7 +1,31 @@
+simulasi.simulasi_data_akademik.form:
+  path: '/simulasi/simulasi-data-akademik'
+  defaults:
+    _form: '\Drupal\simulasi\Form\SimulasiDataAkademikForm'
+    _title: 'simulasi data_akademik batch processing'
+  requirements:
+    _permission: 'administer content'
+    
 simulasi.simulasi_pendaftaran.form:
   path: '/simulasi/simulasi-pendaftaran'
   defaults:
     _form: '\Drupal\simulasi\Form\SimulasiPendaftaranForm'
     _title: 'simulasi pendaftaran batch processing'
   requirements:
-    _permission: 'access content'
+    _permission: 'administer content'
+
+simulasi.batch_delete_data_form:
+  path: '/simulasi/form/batch_delete_data'
+  defaults:
+    _form: '\Drupal\simulasi\Form\BatchDeleteDataForm'
+    _title: 'BatchDeleteDataForm'
+  requirements:
+    _permission: 'administer content'
+
+simulasi.batch_generate_data_form:
+  path: '/simulasi/form/batch_generate_data'
+  defaults:
+    _form: '\Drupal\simulasi\Form\BatchGenerateDataForm'
+    _title: 'Batch Generate Data Form'
+  requirements:
+    _permission: 'administer content'

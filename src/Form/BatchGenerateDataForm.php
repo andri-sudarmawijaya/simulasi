@@ -4,6 +4,7 @@ namespace Drupal\simulasi\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+
 use Drupal\pendaftaran\Entity\Pendaftaran;
 use Drupal\wilayah_indonesia_vilage\Entity\Vilage;
 use Drupal\wilayah_indonesia_district\Entity\District;
@@ -20,35 +21,45 @@ use Drupal\penyelenggara\Entity\Penyelenggara;
 use Drupal\tingkat\Entity\Tingkat;
 use Drupal\juara\Entity\Juara;
 use Drupal\simulasi\Lorem;
-
-
+use Drupal\user\Entity\User;
 /**
- * Form with examples on how to use cache.
+ * Class BatchGenerateDataForm.
  */
-class SimulasiPendaftaranForm extends FormBase {
+class BatchGenerateDataForm extends FormBase {
+
 
   /**
    * {@inheritdoc}
    */
   public function getFormId() {
-    return 'simulasi_pendaftaran_form';
+    return 'batch_generate_data_form';
   }
 
   /**
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-	
+    $form['num_operation'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Number of operation'),
+      '#description' => $this->t('Number of operation data will be created'),
+      '#default_value' => '10',
+      '#weight' => '0',
+    ];
+    $form['batch'] = [
+      '#type' => 'radios',
+      '#title' => 'Choose batch',
+      '#options' => [
+        'pendaftaran' => $this->t('Pendaftaran'),
+        'data_akademik' => $this->t('Data Akademik'),
+      ],
+      '#weight' => '1',
+    ];
     $form['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Submit'),
+      '#weight' => '10',
     ];
-	
-	// Delete all nodes.
-	//entity_delete_multiple('pendaftaran', \Drupal::entityQuery('pendaftaran')->execute());
-
-    // Delete all users except uid > 6.
-	//entity_delete_multiple('user', \Drupal::entityQuery('user')->condition('uid', '6', '>')->condition('uid', '0', '!=')->execute());
 
     return $form;
   }
@@ -64,43 +75,88 @@ class SimulasiPendaftaranForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
-	  // Initialize some variables during the first pass through.
-	  $database = \Drupal::database();
-	  if (!isset($sandbox['total'])) {
-		$query = $database->select('data_akademik', 'd')
-		  //->fields('d')
-		  //->range('0','3')
-		  ->range()
-		  ->countQuery()
-		  ->execute();
-		$count = $query->fetchField();  
-		$sandbox['total'] = $count;
-	  }
-	  $pendaftaran_per_batch = 25;
-	  isset($sandbox['current']) ? $sandbox['current'] : '0';
-	  // Handle one pass through.
-      usleep(2000);
-      $query = $database->select('data_akademik', 'd');
-	  $query->fields('d');
-	  //$query->condition('id', '1130' , '>=');
-	  //$query->condition('id', '1135' , '<');
-	  $query->range('0', '300');
-	  //$query->range($sandbox['current'], $sandbox['current'] + $pendaftaran_per_batch);
-	  $query->leftjoin('users_field_data', 'u', 'u.name = d.nisn');
-	  $query->isNull('u.name');
-	  $pids = $query->execute()->fetchAll();
-	  foreach($pids as $key => $pid) {
-		$data = (array)$pid;
-        $data_umum = $this->createDataUmum();
+	 // Get all data to be processed.
+	$var['num_operation'] = $form_state->getValue('num_operation');
+    $var['type'] = $form_state->getValues()['batch'];
+	$values = $form_state->getValues();
+
+    // Set the batch, using convenience methods.
+    $batch = [];
+    switch ($var['type']) {
+      case 'pendaftaran':
+	    // Handle one pass through.
+        usleep(2000);
+	    $pendaftaran_per_batch = 2;
+	    $database = \Drupal::database();
+        $query = $database->select('data_akademik', 'd');
+	    $query->fields('d');
+	    //$query->range($sandbox['current'], $sandbox['current'] + $pendaftaran_per_batch);
+	    $query->range('0', $var['num_operation']);
+	    $query->leftjoin('users_field_data', 'u', 'u.name = d.nisn');
+	    $query->isNull('u.name');
+	    $pids = $query->execute()->fetchAll();
+	  
+	    // Breakdown your process into small batches(operations).
+	    //      Generate 50 pendaftarans per batch.
+	    $operations = [];
+	    foreach (array_chunk($pids, $pendaftaran_per_batch) as $smaller_batch_data) {
+		  $operations[] = ['\Drupal\simulasi\Form\BatchGenerateDataForm::batchGenerate'
+										, [$smaller_batch_data, $var]];
+	    }
+	    // Setup and define batch informations.
+	    $batch = array(
+		  'title' => t('Generating pendaftaran entities in batch...'),
+		  'operations' => $operations,
+		  'finished' => '\Drupal\simulasi\Form\BatchGenerateDataForm::batchFinished',
+	    );
+	    batch_set($batch);
+      break;
+
+      case 'user':
+        $batch = \Drupal\simulasi\Form\BatchGenerateDataForm::batchGenerateUser($var);
+      break;
+    }
+  }
+  
+  // Implement the operation method.
+  public static function batchGenerateUser($var){
+	$all_ids = \Drupal::entityQuery('user')
+						  ->condition('uid', $var['from_id'], '>=')
+						  ->condition('uid', $var['to_id'], '<=')
+						->execute();
+	// Breakdown your process into small batches(operations).
+	//      Generate 50 users per batch.
+	$operations = [];
+	foreach (array_chunk($all_ids, 50) as $smaller_batch_data) {
+		$operations[] = ['\Drupal\simulasi\Form\BatchGenerateDataForm::batchGenerate'
+										, [$smaller_batch_data]];
+	}
+
+	// Setup and define batch informations.
+	$batch = array(
+		'title' => t('Deleting users in batch...'),
+		'operations' => $operations,
+		'finished' => '\Drupal\simulasi\Form\BatchGenerateDataForm::batchFinished',
+	);
+	batch_set($batch);
+  }
+  
+    public function batchGenerate($smaller_batch_data, $var, &$context) {
+	  //$data = (array)$smaller_batch_data;
+	  dpm($context);
+	  foreach($smaller_batch_data as $data){
+		$data = (array)$data;
+		
+		$data_umum = \Drupal\simulasi\Form\BatchGenerateDataForm::createDataUmum();
 		unset($data['id']);
 		unset($data['uid']);
 		$data = array_merge($data, $data_umum);
-		$user = $this->createUser($data);
+		$user = \Drupal\simulasi\Form\BatchGenerateDataForm::createUser($data);
 		$data['year'] = date('Y', REQUEST_TIME);
 		$data['user_id'] = $user->id();
 		$data['name'] = $user->getUsername();
 		
-		$akademik = $this->getSkorAkademik($data);
+		$akademik =\Drupal\simulasi\Form\BatchGenerateDataForm::getSkorAkademik($data);
 		$data = array_merge($data, $akademik);
 
 		if($data['jalur_pendaftaran'] == '10'){
@@ -123,8 +179,9 @@ class SimulasiPendaftaranForm extends FormBase {
 	      $data['skor_total'] += isset($data['skor_zonasi']) ? $data['skor_zonasi'] : '0';
 	      $data['skor_total'] += isset($data['skor_akademik']) ? $data['skor_akademik'] : '0';
 		}
-		
+		$database = \Drupal::Database();
         $transaction = $database->startTransaction();
+		//dpm($data);
         try {
 		  $pendaftaran = Pendaftaran::create($data);
 		  $pendaftaran->save();
@@ -135,17 +192,29 @@ class SimulasiPendaftaranForm extends FormBase {
           watchdog_exception('simulasi', $e, $e->getMessage());
           throw new \Exception(  $e->getMessage(), $e->getCode(), $e->getPrevious());
         }
-		
-	    $this->messenger()->addMessage($this->t('@count pendaftaran processed.', array('@count' => isset($sandbox['current']) ? $sandbox['current']++ : '1')));
+		$sandbox['current'] = '1';
+	    //$this->messenger()->addMessage($this->t('@count pendaftaran processed.', array('@count' => isset($sandbox['current']) ? $sandbox['current']++ : '1')));
+	    drupal_set_message(t('@count pendaftaran processed.', array('@count' => $sandbox['current'] ? $sandbox['current']++ : '1')));
 
+		dpm($sandbox['current']);
+		
 	    if ($sandbox['total'] == 0) {
 		  $sandbox['#finished'] = 1;
 	    } else {
 		  $sandbox['#finished'] = (( isset($sandbox['current']) ? $sandbox['current']++ : '1') / $sandbox['total']);
 	    }
 	  }
+	}
+ 
+  // What to do after batch ran. Display success or error message.
+  public static function batchFinished($success, $results, $operations) {
+    if ($success)
+      $message = count($results). ' batches processed.';
+    else
+      $message = 'Finished with an error.';
+ 
+    drupal_set_message($message);
   }
-  
   
   public function getSkorAkademik($data){
     $keys = ['matematika', 'ipa', 'ips', 'english', 'indonesia'];
@@ -160,6 +229,7 @@ class SimulasiPendaftaranForm extends FormBase {
 	}
 	return $data;
   }
+  
   public function getDomisili(){
     $ids = \Drupal::entityQuery('vilage')
 		->execute();
@@ -187,7 +257,7 @@ class SimulasiPendaftaranForm extends FormBase {
   
   public function getJenisSekolah(){
     $ids = \Drupal::entityQuery('jenis_sekolah')
-		->condition('id', '10','=')
+		//->condition('id', '10','=')
 		->execute();
 
 	$jenis_sekolah = JenisSekolah::load(array_rand($ids));	
@@ -201,7 +271,7 @@ class SimulasiPendaftaranForm extends FormBase {
   public function getPilihanSekolah($data){
     $ids = \Drupal::entityQuery('pilihan_sekolah')
 		->condition('jenis_sekolah', $data['jenis_sekolah'] ,'=')
-		//->condition('vilage', '3601030015' ,'=')
+		->condition('vilage', $data['vilage'] ,'=')
 		->execute();
 
 	$pilihan_sekolah = PilihanSekolah::load(array_rand($ids));	
@@ -374,7 +444,7 @@ class SimulasiPendaftaranForm extends FormBase {
   public function createUser($data) { 
     $language = \Drupal::languageManager()->getCurrentLanguage()->getId();
     $user = \Drupal\user\Entity\User::create();
-
+    //dpm($data);
     //Mandatory settings
     $user->setPassword($data['nisn']);
     $user->enforceIsNew();
@@ -407,33 +477,33 @@ class SimulasiPendaftaranForm extends FormBase {
   
   public function createDataUmum(){
     $data = [];	
-	$domisili = $this->getDomisili();    
+	$domisili = \Drupal\simulasi\Form\BatchGenerateDataForm::getDomisili();    
 	$data = array_merge($data, $domisili);
 
-	$jenis_sekolah = $this->getJenisSekolah(); 
+	$jenis_sekolah = \Drupal\simulasi\Form\BatchGenerateDataForm::getJenisSekolah(); 
 	$data = array_merge($data, $jenis_sekolah);
 	
-	$pilihan_sekolah = $this->getPilihanSekolah($data); 
+	$pilihan_sekolah = \Drupal\simulasi\Form\BatchGenerateDataForm::getPilihanSekolah($data); 
 	$data = array_merge($data, $pilihan_sekolah);
 
-    $zonasi = $this->getZonasi($data);
+    $zonasi = \Drupal\simulasi\Form\BatchGenerateDataForm::getZonasi($data);
 	$data = array_merge($data, $zonasi);
 	
-	$prodi_sekolah = $this->getProdiSekolah($data);
+	$prodi_sekolah = \Drupal\simulasi\Form\BatchGenerateDataForm::getProdiSekolah($data);
 	$data = array_merge($data, $prodi_sekolah);
 
-	$prestasi = $this->getPrestasi($data);
+	$prestasi = \Drupal\simulasi\Form\BatchGenerateDataForm::getPrestasi($data);
 	$data = array_merge($data, $prestasi);
 
-	$sktm = $this->getSktm($data);
+	$sktm = \Drupal\simulasi\Form\BatchGenerateDataForm::getSktm($data);
 	$data = array_merge($data, $sktm);
 
-	$jalur_pendaftaran = $this->getJalurPendaftaran($data);
+	$jalur_pendaftaran = \Drupal\simulasi\Form\BatchGenerateDataForm::getJalurPendaftaran($data);
 	$data = array_merge($data, $jalur_pendaftaran);
 
     return $data;
 	//$entries = array();
   }
-
+  
+  //------------------------
 }
-

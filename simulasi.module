@@ -32,7 +32,7 @@ function simulasi_help($route_name, RouteMatchInterface $route_match) {
  * After each group of 5 control is returned to the batch API for later
  * continuation.
  */
-function simulasi_op_2($operation_details, &$context) {
+function simulasi_data_akademik($operation_details, &$context) {
   // Use the $context['sandbox'] at your convenience to store the
   // information needed to track progression between successive calls.
   if (empty($context['sandbox'])) {
@@ -118,11 +118,11 @@ function _insert_data(){
       'pekerjaan_ayah' => Lorem::ipsum('2', '3'),
       'tempat_lahir' => Lorem::ipsum('1', '1'),
       'tgl_lahir' => makeRandomDateInclusive('1999-01-01', '2001-05-30'),
-      'matematika' => mt_rand(300,990) / 10,
-      'ipa' => mt_rand(400,990) / 10,
+      'matematika' => mt_rand(500,990) / 10,
+      'ipa' => mt_rand(500,990) / 10,
       'ips' => mt_rand(530,990) / 10,
-      'english' => mt_rand(330,990) / 10,
-      'indonesia' => mt_rand(430,990) / 10,
+      'english' => mt_rand(730,990) / 10,
+      'indonesia' => mt_rand(730,990) / 10,
     ];
 
 	$database = \Drupal::database();
@@ -143,4 +143,124 @@ function makeRandomDateInclusive($startDate,$endDate){
     $days = round((strtotime($endDate) - strtotime($startDate)) / (60 * 60 * 24));
     $n = rand(0,$days);
     return date("Y-m-d",strtotime("$startDate + $n days"));    
+}
+
+
+
+/**
+ * Batch operation for batch 2: five at a time.
+ *
+ * This is the function that is called on each operation in batch 2.
+ *
+ * After each group of 5 control is returned to the batch API for later
+ * continuation.
+ */
+function simulasi_pendaftaran($operation_details, &$context) {
+  // Use the $context['sandbox'] at your convenience to store the
+  // information needed to track progression between successive calls.
+  $data = $operation_details;
+  dpm($context);
+  if (empty($context['sandbox'])) {
+    $context['sandbox'] = [];
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['current_node'] = 0;
+
+    // Save node count for the termination message.
+    $context['sandbox']['max'] = 2;
+  }
+  // Process in groups of 5 (arbitrary value).
+  // When a group of five is processed, the batch update engine determines
+  // whether it should continue processing in the same request or provide
+  // progress feedback to the user and wait for the next request.
+  // That way even though we're already processing at the operation level
+  // the operation itself is interruptible.
+  $limit = 1;
+
+    
+  // Retrieve the next group.
+  $result = range($context['sandbox']['current_node'] + 1, $context['sandbox']['current_node'] + 1 + $limit);
+
+  foreach ($result as $row) {
+    // Here we actually perform our dummy 'processing' on the current node.
+    usleep(20000);
+    
+	$data = _create_data_pendaftaran();
+
+	// Store some results for post-processing in the 'finished' callback.
+    // The contents of 'results' will be available as $results in the
+    // 'finished' function (in this example, simulasi_finished()).
+    $context['results'][] = $row . ' ' . $operation_details;
+    
+    // Update our progress information.
+    $context['sandbox']['progress']++;
+    $context['sandbox']['current_node'] = $row;
+    $context['message'] = t('Running Batch "@id" @details',
+      ['@id' => $row, '@details' => $operation_details]
+    );
+  }
+
+  // Inform the batch engine that we are not finished,
+  // and provide an estimation of the completion level we reached.
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = ($context['sandbox']['progress'] >= $context['sandbox']['max']);
+  }
+}
+
+function _create_data_pendaftaran(){
+    $entries =[];
+    $entries = array_merge($entries, _create_data_umum());
+	
+	$database = \Drupal::database();
+	$transaction = $database->startTransaction();
+	try {
+	  //$database->insert('data_akademik')->fields($entry)->execute();
+	  //$this->messenger()->addMessage($this->t('Selamat data anda sudah disimpan.'));
+	}
+	catch (\Exception $e) {
+	  $transaction->rollback();
+
+	  watchdog_exception('simulasi', $e, $e->getMessage());
+	  throw new \Exception(  $e->getMessage(), $e->getCode(), $e->getPrevious());
+	}
+}
+
+function _create_data_umum(){
+    return;
+	$entries = array(
+//	  'name' => $user->getUsername(),
+      'nama_lengkap'=> $this->store->get('nama_lengkap'),
+	  'nama_ayah'=> $this->store->get('nama_ayah'),
+	  'pekerjaan_ayah'=> $this->store->get('pekerjaan_ayah'),
+	  'tempat_lahir' => $this->store->get('tempat_lahir'),
+	  'tgl_lahir' => $this->store->get('tgl_lahir'),
+	  'matematika' => $this->store->get('matematika'),
+	  'ipa' => $this->store->get('ipa'),
+	  'ips' => $this->store->get('ips'),
+	  'english' => $this->store->get('english'),
+	  'indonesia' => $this->store->get('indonesia'),
+      'provinsi' => $this->store->get('provinsi'),
+      'nama_provinsi' => $this->store->get('nama_provinsi'),
+      'kabupaten' => $this->store->get('kabupaten'),
+      'nama_kabupaten' => $this->store->get('nama_kabupaten'),
+      'kecamatan' => $this->store->get('kecamatan'),
+      'nama_kecamatan' => $this->store->get('nama_kecamatan'),
+      'desa' => $this->store->get('desa'),
+
+      'nama_desa' => $this->store->get('nama_desa'),
+      'jenis_sekolah' => $this->store->get('jenis_sekolah'),
+      'nama_jenis_sekolah' => $this->store->get('nama_jenis_sekolah'),
+      'zona_sekolah' => $this->store->get('zona_sekolah'),
+      'nama_zona_sekolah' => $this->store->get('nama_zona_sekolah'),
+      'pilihan_sekolah' => $this->store->get('pilihan_sekolah'),
+      'nama_pilihan_sekolah' => $this->store->get('nama_pilihan_sekolah'),
+      'desa_sekolah' => $this->store->get('desa_sekolah'),
+      'kecamatan_sekolah' => $this->store->get('kecamatan_sekolah'),
+      'kabupaten_sekolah' => $this->store->get('kabupaten_sekolah'),
+      'provinsi_sekolah' => $this->store->get('provinsi_sekolah'),
+      'zonasi' => $this->store->get('zonasi'),
+      'nama_zonasi' => $this->store->get('nama_zonasi'),
+      'skor_zonasi' => $this->store->get('skor_zonasi'),
+      'prodi_sekolah' => $this->store->get('prodi_sekolah'),
+      'nama_prodi_sekolah' => $this->store->get('nama_prodi_sekolah'),
+	);
 }
